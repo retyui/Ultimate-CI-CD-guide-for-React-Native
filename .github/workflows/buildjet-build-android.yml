@@ -41,10 +41,26 @@ jobs:
 
 
       - name: Build arm64-v8a APK
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
         working-directory: ./android
+        # Use `./gradlew bundleRelease` - for Play Market release
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+        #                              ^^^ build apk for x64 arm chips
+        # if you want to build for other architectures (armeabi-v7a,arm64-v8a,x86,x86_64)
+        # add them to the list or remove the `-PreactNativeArchitectures` flag
+        # See:https://reactnative.dev/docs/build-speed#build-only-one-abi-during-development-android-only
 
-      - name: Upload apk
+      # (optional) Use GitHub Actions artifacts to store the apk
+      - name: Store artifacts on GitHub
         uses: actions/upload-artifact@v3
         with:
           path: ./android/app/build/outputs/apk/release/app-release.apk
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Distribute apk to Firebase App Distribution
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          APK_PATH: ./android/app/build/outputs/apk/release/app-release.apk
+          RELEASE_NOTES: Made by - ${{ github.actor }} # optional
+        run: |
+          source ./scripts/env.sh
+          APP_ID=$FIREBASE_ANDROID_APP_ID ./scripts/distribute-to-firebase.sh
