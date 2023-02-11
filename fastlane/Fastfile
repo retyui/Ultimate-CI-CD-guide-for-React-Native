@@ -1,0 +1,90 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+
+AndroidCommonPreset = {
+  PROJECT_DIR: './android/'
+}
+AndroidProductionPreset = {
+  BUILD_TYPE: 'Release',
+  FIREBASE_DISTRIBUTION_APP_ID: '1:515471863664:android:1b49d90cfef634f10d29b5'
+}
+# TODO: staging preset
+
+platform :android do
+  desc "Deploy a Beta Release to Firebase App Distribution"
+  lane :beta do
+    # TODO
+  end
+
+
+  desc "Upload to Firebase App Distribution"
+  lane :distribute_to_firebase do |options|
+    ensure_env_vars(
+      env_vars: [
+        # optional 'RELEASE_NOTES'
+        'FIREBASE_TOKEN', # Use: 'npx firebase-tools login:ci' to generate one
+      ]
+    )
+
+    firebase_app_distribution(
+      groups: options[:groups],
+      app: options[:app],
+      firebase_cli_token: ENV['FIREBASE_TOKEN'],
+      release_notes: ENV['RELEASE_NOTES']
+    ) # docs: https://firebase.google.com/docs/app-distribution/android/distribute-fastlane?apptype=aab
+  end
+
+  desc "Deploy a new version to the Google Play"
+  lane :deploy do
+    ensure_env_vars(
+      env_vars: [
+        'TEST_RUN',        # 'true' or 'false'
+        'RELEASE_VERSION', # '1.2.3'
+      ]
+    )
+
+    # TODO: set version
+
+    gradle(
+      task: 'clean',
+      project_dir: AndroidCommonPreset[:PROJECT_DIR],
+    )
+    gradle(
+      project_dir: AndroidCommonPreset[:PROJECT_DIR],
+      build_type: AndroidProductionPreset[:BUILD_TYPE],
+      task: ENV['TEST_RUN'] != 'true' ? 'bundle' : 'assemble',
+      # ^^^ Make '.aab' file for Play Market
+      #    but for testing more easy to use '.apk' file
+    )
+
+    if(ENV['TEST_RUN'] != 'true')
+      supply(
+        # production, beta, alpha, internal
+        track: "internal",
+      )
+      # ^^^ Upload to Play Market
+      # http://docs.fastlane.tools/actions/supply/
+    else
+      puts("Test run, Skip upload to PlayMarket...".red)
+      # you can upload to Firebase App Distribution here
+      # or store .apk file somewhere
+      distribute_to_firebase(
+        app: AndroidProductionPreset[:FIREBASE_DISTRIBUTION_APP_ID],
+        groups: ENV['FIREBASE_TESTER_GROUP'],
+      )
+    end
+  end
+end
