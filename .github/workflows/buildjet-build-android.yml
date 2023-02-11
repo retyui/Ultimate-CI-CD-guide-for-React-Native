@@ -36,9 +36,7 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('./yarn.lock') }}
 
       - name: Install node_modules
-        run: |
-          yarn install --frozen-lockfile
-          npx envinfo
+        run: yarn install --frozen-lockfile
         if: steps.node_cache.outputs.cache-hit != 'true'
 
 
