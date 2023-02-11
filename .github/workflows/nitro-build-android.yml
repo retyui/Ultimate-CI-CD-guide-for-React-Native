@@ -2,7 +2,7 @@ name: Android https://nitro.build
 on: [push] # Run on every push to any branch
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.appEnvironment || 'Staging' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true # Cancel previous runs of this workflow
 
 jobs:
