@@ -1,6 +1,6 @@
 
 /**
- * Examples:
+ * Examples (see: docs/versioning.md):
  *  - Prod release: "1.2.3", "2.0.0", ...
  *  - Beta/Staging release: "1.0.0+my-branch-name"
  *  - Local: '1.0.0'
@@ -10,7 +10,7 @@ def String generateVersionName() {
     def ciVersionName = System.getenv("RELEASE_VERSION")
 
     if (isCI && !ciVersionName){
-       throw new GradleException("RELEASE_VERSION is not set")
+       throw new GradleException("RELEASE_VERSION environment variable is not set")
     }
 
     if(ciVersionName){
@@ -23,10 +23,6 @@ def String generateVersionName() {
 def Integer generateVersionCode() {
     def isCI = System.getenv("CI")
     def ciVersionCode = System.getenv("RELEASE_CODE")
-
-    if (isCI && !ciVersionCode){
-       throw new GradleException("RELEASE_CODE is not set")
-    }
 
     if(ciVersionCode){
       return ciVersionCode.toInteger()

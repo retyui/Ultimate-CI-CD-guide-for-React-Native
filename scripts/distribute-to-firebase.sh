@@ -27,7 +27,6 @@ then
 fi
 
 
-
 # Docs: https://firebase.google.com/docs/app-distribution/android/distribute-cli?apptype=apk
 npx firebase-tools appdistribution:distribute "$APK_PATH" \
   --app "$APP_ID" \

@@ -12,16 +12,7 @@ on:
       - 'hotifix/'
   # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
   workflow_dispatch:
-    inputs:
-      appEnvironment:
-        description: 'Environment (TODO)'
-        required: true
-        default: 'Staging'
-        type: choice
-        options:
-          - Production
-          - Staging
-          - QA
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -78,11 +69,11 @@ jobs:
             # More info: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
 
           # Optional
-          RELEASE_NOTES: Made by - ${{ github.actor }} ${{ github.event.head_commit.message }}
+          RELEASE_NOTES: Made by - ${{ github.actor }} - ${{ github.event.head_commit.message }}
           NO_MINIFY_JS: 1 # Speed improvement (see: android/app/build.gradle)
 
       # (optional) Use GitHub Actions artifacts to store the apk
       - name: Store artifacts on GitHub
         uses: actions/upload-artifact@v3
         with:
-          path: ./android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/app-release.apk

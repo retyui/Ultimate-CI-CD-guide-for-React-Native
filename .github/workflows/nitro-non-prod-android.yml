@@ -12,16 +12,7 @@ on:
       - 'hotifix/'
   # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
   workflow_dispatch:
-    inputs:
-      appEnvironment:
-        description: 'Environment (TODO)'
-        required: true
-        default: 'Staging'
-        type: choice
-        options:
-          - Production
-          - Staging
-          - QA
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,19 +24,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NITRO_API_KEY: ${{ secrets.NITRO_API_KEY }}
+      RELEASE_VERSION: 1.0.0+${{ github.head_ref || github.ref_name }}
+      # ^^^ `version-name` will be used but to avoid gradle exception we need to set this env var
     steps:
       - uses: actions/checkout@v3
+
+        # https://github.com/nitro-build/github-action-nitro-android#inputs
       - uses: nitro-build/github-action-nitro-android@v1
         id: nitro
         with:
-          # flavor: Staging|Production # optional (TODO: not implemented yet)
-          version_name: 1.0.0+${{ github.head_ref || github.ref_name }} # (see: docs/versioning.md)
-          version_code: 1 # (see: docs/versioning.md)
-          disable_version_name_from_package_json: yes
-          disable_version_code_auto_generation: yes
-          verbose: yes
-          debug: yes
-          entry_file: index.TODO.js
+          version-name: 1.0.0+${{ github.head_ref || github.ref_name }} # (see: docs/versioning.md)
+          version-code: 1
+          disable-version-name-from-package-json: yes
+          disable-version-code-auto-generation: yes
+
 
       # (optional) Use GitHub Actions artifacts to store the apk
       - name: Store artifacts on GitHub
@@ -55,10 +47,12 @@ jobs:
 
       # (optional) Upload the apk to Firebase App Distribution
       - name: Distribute apk to Firebase App Distribution
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          APK_PATH: ${{ steps.nitro.outputs.nitro-output-dir }}/app-release.apk
-          RELEASE_NOTES: Made by - ${{ github.actor }} # optional
         run: |
           source ./scripts/env.sh
           APP_ID=$FIREBASE_PROD_ANDROID_APP_ID ./scripts/distribute-to-firebase.sh
+        env:
+          # required
+          APK_PATH: ${{ steps.nitro.outputs.nitro-output-dir }}/app-release.apk
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          # optional
+          RELEASE_NOTES: Made by - ${{ github.actor }} - ${{ github.event.head_commit.message }}

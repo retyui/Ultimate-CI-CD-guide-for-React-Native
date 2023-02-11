@@ -12,16 +12,7 @@ on:
       - 'hotifix/'
   # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
   workflow_dispatch:
-    inputs:
-      appEnvironment:
-        description: 'Environment (TODO)'
-        required: true
-        default: 'Staging'
-        type: choice
-        options:
-          - Production
-          - Staging
-          - QA
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
