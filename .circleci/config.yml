@@ -1,0 +1,128 @@
+# Based on https://github.com/CircleCI-Public/circleci-demo-react-native
+version: 2.1
+jobs:
+  node:
+    working_directory: ~/my-react-native
+    docker:
+      - image: cimg/node:18.12.1
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
+
+      - restore_cache:
+          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
+
+      - run: yarn install --frozen-lockfile
+
+      - save_cache:
+          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
+          paths:
+            - ~/.cache/yarn
+
+      - save_cache:
+          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
+          paths:
+            - node_modules
+
+      - persist_to_workspace:
+          root: ~/my-react-native
+          paths:
+            - node_modules
+
+
+  macos-build:
+    working_directory: ~/my-react-native
+    macos:
+      xcode: 11.3.0
+    environment:
+      FL_OUTPUT_DIR: output
+      FASTLANE_LANE: test
+
+    steps:
+      - checkout
+      - restore_cache:
+          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
+
+      - restore_cache:
+          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
+
+      - run: yarn install
+
+      - save_cache:
+          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
+          paths:
+            - ~/.cache/yarn
+
+      - save_cache:
+          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
+          paths:
+            - node_modules
+
+      - restore_cache:
+          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
+
+      #Pods directory is ignored to match default RN setup, but can also check them into source control
+      #https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
+      - restore_cache:
+          key: pods-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
+
+      - run:
+          command: pod install
+          working_directory: ios
+
+      - run:
+          command: bundle install
+          working_directory: ios
+
+      - save_cache:
+          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
+          paths:
+            - vendor/bundle
+
+      - save_cache:
+          key: pods-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
+          paths:
+            - ios/Pods
+
+      # TODO
+      - run:
+          name: Fastlane
+          command: bundle exec fastlane $FASTLANE_LANE
+          working_directory: ios
+
+      - store_artifacts:
+          path: output
+
+      - store_test_results:
+          path: output/scan
+
+  android-build:
+    working_directory: ~/my-react-native/android
+    docker:
+      - image: circleci/android:2022.12-node # (ubuntu 20.04.5 LTS; android-33; node 18.12.1; ...) https://circleci.com/developer/images/image/cimg/android
+    steps:
+      - checkout:
+          path: ~/my-react-native
+
+      - attach_workspace:
+          at: ~/my-react-native
+
+      - run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - store_artifacts:
+          path: app/build/outputs/apk/release
+
+
+workflows:
+  node-android-ios:
+    jobs:
+      - node
+      - android-build:
+          requires:
+            - node
+      - macos-build:
+          requires:
+            - node
