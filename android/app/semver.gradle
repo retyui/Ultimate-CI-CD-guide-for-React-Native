@@ -1,0 +1,33 @@
+
+/**
+ * Examples:
+ *  - Prod release: "1.2.3", "2.0.0", ...
+ *  - Beta/Staging release: "1.0.0+my-branch-name"
+ *  - Local: '1.0.0'
+ */
+def String generateVersionName() {
+    def ciVersionName = System.getenv("RELEASE_VERSION")
+
+    if (ciVersionName) {
+        return ciVersionName
+    }
+
+    return "1.0.0"
+}
+
+def Integer generateVersionCode() {
+    def ciVersionCode = System.getenv("RELEASE_CODE")
+
+    if (ciVersionCode) {
+        return ciVersionCode.toInteger()
+    }
+
+    // Lock version code to avoid a INSTALL_FAILED_VERSION_DOWNGRADE Exception when switching between branches
+    return 1
+}
+
+// Export methods by turning them into closures
+ext {
+    generateVersionName = this.&generateVersionName
+    generateVersionCode = this.&generateVersionCode
+}

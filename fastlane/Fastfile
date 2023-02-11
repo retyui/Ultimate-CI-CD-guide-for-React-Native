@@ -14,22 +14,134 @@
 # update_fastlane
 
 
-AndroidCommonPreset = {
-  PROJECT_DIR: './android/'
+CommonOptions = {
+  ANDROID_PROJECT_DIR: './android',
+  FIREBASE_TESTER_GROUP: 'my-testers-group'
+}
+iOSProductionPreset = {
+  FIREBASE_DISTRIBUTION_APP_ID: '1:515471863664:ios:93569b7473232a120d29b5',
+  SCHEME: "TODO",
+  BUILD_CONFIGURATION: 'Release',
+  PROFILE_PATH: 'sigh_com.TODO_adhoc_profile-path',
+  APP_IDENTIFIER: 'TODO'
 }
 AndroidProductionPreset = {
   BUILD_TYPE: 'Release',
   FIREBASE_DISTRIBUTION_APP_ID: '1:515471863664:android:1b49d90cfef634f10d29b5'
 }
-# TODO: staging preset
+# TODO
+# AndroidStagingPreset = {
+#   BUILD_TYPE: 'StagingRelease',
+#   FIREBASE_DISTRIBUTION_APP_ID: '1:515471863664:android:99dc9b9e5c0211fe0d29b5'
+# }
+
 
 platform :android do
+  #################################################
+  # Staging/Beta deployment
+  #################################################
   desc "Deploy a Beta Release to Firebase App Distribution"
   lane :beta do
-    # TODO
+    ensure_env_vars(
+      env_vars: [
+        'BRANCH_NAME',                  # Git branch name
+        'FIREBASE_TOKEN',               # Use: 'npx firebase-tools login:ci' to generate one
+      ]
+    )
+
+    # All beta released will be marked as '1.0.0+<branch_name>' (valid semver)
+    # Version logic in `android/app/semver.gradle`
+    ENV["RELEASE_VERSION"] = "1.0.0+" + ENV["BRANCH_NAME"]
+
+    # Clean project
+    gradle_clean()
+    # Build Android app
+    gradle(
+      task: 'assemble', # Create .apk file
+      project_dir: CommonOptions[:ANDROID_PROJECT_DIR],
+      build_type: AndroidProductionPreset[:BUILD_TYPE],
+      properties: {
+        "reactNativeArchitectures" => "arm64-v8a",
+        # ^^^ For faster build time you can specify only required architecture
+        #   - "armeabi-v7a,arm64-v8a,x86,x86_64" # Universal apk (affect build time)
+        #   - "arm64-v8a"                        # For testing on real Android devices (much faster build time)
+        #   - "x86_64",                          # For e2e testing on emulators (much faster build time)
+        # Read: https://reactnative.dev/docs/build-speed#build-only-one-abi-during-development-android-only
+      }
+    )
+    # Upload apk to Firebase App Distribution
+    distribute_to_firebase(
+      app: AndroidProductionPreset[:FIREBASE_DISTRIBUTION_APP_ID],
+      groups: CommonOptions[:FIREBASE_TESTER_GROUP],
+    )
   end
 
+  #################################################
+  # Production deployment
+  #################################################
+  desc "Deploy a new version to the Play Market"
+  lane :deploy do
+    ensure_env_vars(
+      env_vars: [
+        # Required for signing app (see: https://reactnative.dev/docs/signed-apk-android#generating-an-upload-key)
+        'MYAPP_UPLOAD_STORE_FILE', # Path to prod keystore file
+        'MYAPP_UPLOAD_KEY_ALIAS',  # Alias for prod keystore
+        'MYAPP_UPLOAD_KEY_PASSWORD', # Password that was used to generate the keystore
+        'MYAPP_UPLOAD_STORE_PASSWORD', # Password that was used to generate the keystore
 
+        'RELEASE_VERSION', # '1.2.3' semver
+        'RELEASE_CODE',    # '12345678' integer
+
+        'TEST_RUN',        # 'true' or 'false'
+        # ^^^ "Test run" will be used to verify
+        #  - that production build is working
+        #  - without uploading to Play Market
+      ]
+    )
+
+    # Version logic in `android/app/semver.gradle`
+    # versionCode = $RELEASE_CODE    // 12345678
+    # versionName = $RELEASE_VERSION // 1.2.3
+
+    # Clean project
+    gradle_clean()
+    # Build Android app
+    gradle(
+      project_dir: CommonOptions[:ANDROID_PROJECT_DIR],
+      build_type: AndroidProductionPreset[:BUILD_TYPE],
+      task: ENV['TEST_RUN'] != 'true' ? 'bundle' : 'assemble',
+      # ^^^ Make '.aab' file for Play Market
+            #    but for testing more easy to use '.apk' file
+      properties: {
+        # Sign app with keystore (see: android/app/build.gradle)
+        MYAPP_UPLOAD_STORE_FILE: ENV['MYAPP_UPLOAD_STORE_FILE'],
+        MYAPP_UPLOAD_STORE_PASSWORD: ENV['MYAPP_UPLOAD_STORE_PASSWORD'],
+        MYAPP_UPLOAD_KEY_ALIAS: ENV['MYAPP_UPLOAD_KEY_ALIAS'],
+        MYAPP_UPLOAD_KEY_PASSWORD: ENV['MYAPP_UPLOAD_KEY_PASSWORD'],
+      }
+    )
+
+    if(ENV['TEST_RUN'] != 'true')
+      # Upload to Play Market
+      supply(
+        track: "internal", # production, beta, alpha, internal
+      )
+    else
+      puts("Test run, Skip upload to PlayMarket...".red)
+      # you can upload to Firebase App Distribution
+      # or store .apk file somewhere
+      # ---------------------------------------
+      # Then next action is optional and can be removed if you don't need them
+      distribute_to_firebase(
+        app: AndroidProductionPreset[:FIREBASE_DISTRIBUTION_APP_ID],
+        groups: CommonOptions[:FIREBASE_TESTER_GROUP],
+      )
+    end
+  end
+
+  #################################################
+  # Internal lanes
+  #################################################
   desc "Upload to Firebase App Distribution"
   lane :distribute_to_firebase do |options|
     ensure_env_vars(
@@ -47,44 +159,11 @@ platform :android do
     ) # docs: https://firebase.google.com/docs/app-distribution/android/distribute-fastlane?apptype=aab
   end
 
-  desc "Deploy a new version to the Google Play"
-  lane :deploy do
-    ensure_env_vars(
-      env_vars: [
-        'TEST_RUN',        # 'true' or 'false'
-        'RELEASE_VERSION', # '1.2.3'
-      ]
-    )
-
-    # TODO: set version
-
+  desc "Clean Android project"
+  lane :gradle_clean do
     gradle(
       task: 'clean',
-      project_dir: AndroidCommonPreset[:PROJECT_DIR],
+      project_dir: CommonOptions[:ANDROID_PROJECT_DIR],
     )
-    gradle(
-      project_dir: AndroidCommonPreset[:PROJECT_DIR],
-      build_type: AndroidProductionPreset[:BUILD_TYPE],
-      task: ENV['TEST_RUN'] != 'true' ? 'bundle' : 'assemble',
-      # ^^^ Make '.aab' file for Play Market
-      #    but for testing more easy to use '.apk' file
-    )
-
-    if(ENV['TEST_RUN'] != 'true')
-      supply(
-        # production, beta, alpha, internal
-        track: "internal",
-      )
-      # ^^^ Upload to Play Market
-      # http://docs.fastlane.tools/actions/supply/
-    else
-      puts("Test run, Skip upload to PlayMarket...".red)
-      # you can upload to Firebase App Distribution here
-      # or store .apk file somewhere
-      distribute_to_firebase(
-        app: AndroidProductionPreset[:FIREBASE_DISTRIBUTION_APP_ID],
-        groups: ENV['FIREBASE_TESTER_GROUP'],
-      )
-    end
   end
 end

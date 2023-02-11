@@ -1,0 +1,66 @@
+name: Android https://docs.github.com/en/actions
+on: [push] # Run on every push to any branch
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true # Cancel previous runs of this workflow
+
+jobs:
+  build-android:
+    name: Android Github Actions build
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Gradle wrapper cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Gradle cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle-caches-
+
+      - name: Yarn cache
+        uses: actions/cache@v3
+        id: node_cache
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('./yarn.lock') }}
+
+      - name: Install node_modules
+        run: yarn install --frozen-lockfile
+        if: steps.node_cache.outputs.cache-hit != 'true'
+
+
+      - name: Install Ruby (based on .ruby-version)
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Install Fastlane
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Build .apk & Upload to Firebase App Distribution
+        run: bundle exec fastlane android beta
+        env:
+          # Required
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} # to upload apk to Firebase App Distribution
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+            # head_ref - for manual workflow_dispatch
+            # ref_name - for pull_request
+          # More info: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+
+          # Optional
+          RELEASE_NOTES: Made by - ${{ github.actor }} ${{ github.event.head_commit.message }}
+          NO_MINIFY_JS: 1 # Speed improvement (see: android/app/build.gradle)
+
+      # (optional) Use GitHub Actions artifacts to store the apk
+      - name: Store artifacts on GitHub
+        uses: actions/upload-artifact@v3
+        with:
+          path: ./android/app/build/outputs/apk/release/app-release.apk
