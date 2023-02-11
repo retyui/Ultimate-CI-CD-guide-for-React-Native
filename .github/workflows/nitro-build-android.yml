@@ -1,7 +1,13 @@
 name: Android https://nitro.build
-on: [push]
+on: [push] # Run on every push to any branch
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.appEnvironment || 'Staging' }}
+  cancel-in-progress: true # Cancel previous runs of this workflow
+
 jobs:
-  build:
+  build-android:
+    name: Android Nitro build
     runs-on: ubuntu-latest
     env:
       NITRO_API_KEY: ${{ secrets.NITRO_API_KEY }}
