@@ -6,20 +6,30 @@
  *  - Local: '1.0.0'
  */
 def String generateVersionName() {
+    def isCI = System.getenv("CI")
     def ciVersionName = System.getenv("RELEASE_VERSION")
 
-    if (ciVersionName) {
-        return ciVersionName
+    if (isCI && !ciVersionName){
+       throw new GradleException("RELEASE_VERSION is not set")
+    }
+
+    if(ciVersionName){
+      return ciVersionName
     }
 
     return "1.0.0"
 }
 
 def Integer generateVersionCode() {
+    def isCI = System.getenv("CI")
     def ciVersionCode = System.getenv("RELEASE_CODE")
 
-    if (ciVersionCode) {
-        return ciVersionCode.toInteger()
+    if (isCI && !ciVersionCode){
+       throw new GradleException("RELEASE_CODE is not set")
+    }
+
+    if(ciVersionCode){
+      return ciVersionCode.toInteger()
     }
 
     // Lock version code to avoid a INSTALL_FAILED_VERSION_DOWNGRADE Exception when switching between branches

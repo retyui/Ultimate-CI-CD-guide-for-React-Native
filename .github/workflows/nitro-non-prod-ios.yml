@@ -1,0 +1,42 @@
+name: iOS Not-Prod nitro.build
+
+on:
+  push: # TODO: Remove this type after testing
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Run on every pull request (except for release/* and hotfix/* branches)
+  pull_request:
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
+  workflow_dispatch:
+    inputs:
+      appEnvironment:
+        description: 'Environment (TODO)'
+        required: true
+        default: 'Staging'
+        type: choice
+        options:
+          - Production
+          - Staging
+          - QA
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true # Cancel previous runs of this workflow
+
+jobs:
+  build-ios:
+    name: iOS Build
+    runs-on: macos-12
+    env:
+      NITRO_API_KEY: ${{ secrets.NITRO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: nitro-build/github-action-nitro-ios@v1
+        id: nitro
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ${{ steps.nitro.outputs.nitro-output-dir }}

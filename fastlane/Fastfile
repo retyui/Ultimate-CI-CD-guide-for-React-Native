@@ -62,11 +62,7 @@ platform :android do
       build_type: AndroidProductionPreset[:BUILD_TYPE],
       properties: {
         "reactNativeArchitectures" => "arm64-v8a",
-        # ^^^ For faster build time you can specify only required architecture
-        #   - "armeabi-v7a,arm64-v8a,x86,x86_64" # Universal apk (affect build time)
-        #   - "arm64-v8a"                        # For testing on real Android devices (much faster build time)
-        #   - "x86_64",                          # For e2e testing on emulators (much faster build time)
-        # Read: https://reactnative.dev/docs/build-speed#build-only-one-abi-during-development-android-only
+        # ^^^ For faster build time you can specify only required architectures (see: docs/speedingup.md)
       }
     )
     # Upload apk to Firebase App Distribution
@@ -89,8 +85,8 @@ platform :android do
         'MYAPP_UPLOAD_KEY_PASSWORD', # Password that was used to generate the keystore
         'MYAPP_UPLOAD_STORE_PASSWORD', # Password that was used to generate the keystore
 
-        'RELEASE_VERSION', # '1.2.3' semver
-        'RELEASE_CODE',    # '12345678' integer
+        'RELEASE_VERSION', # '1.2.3' semver (see: docs/versioning.md)
+        'RELEASE_CODE',    # '12345678' number (see: docs/versioning.md)
 
         'TEST_RUN',        # 'true' or 'false'
         # ^^^ "Test run" will be used to verify

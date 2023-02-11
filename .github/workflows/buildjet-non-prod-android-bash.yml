@@ -1,5 +1,27 @@
-name: Android https://buildjet.com
-on: [push] # Run on every push to any branch
+name: Android Non-Prod Buildjet & Bash
+
+on:
+  push: # TODO: Remove this type after testing
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Run on every pull request (except for release/* and hotfix/* branches)
+  pull_request:
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
+  workflow_dispatch:
+    inputs:
+      appEnvironment:
+        description: 'Environment (TODO)'
+        required: true
+        default: 'Staging'
+        type: choice
+        options:
+          - Production
+          - Staging
+          - QA
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -7,11 +29,8 @@ concurrency:
 
 jobs:
   build-android:
-    name: Android Buildjet build
-    strategy:
-      matrix:
-        runs-on: [buildjet-2vcpu-ubuntu-2204, buildjet-4vcpu-ubuntu-2204]
-    runs-on: ${{matrix.runs-on}}
+    name: Android Build
+    runs-on: buildjet-2vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v3
 
@@ -41,13 +60,14 @@ jobs:
 
 
       - name: Build arm64-v8a APK
-        working-directory: ./android
-        # Use `./gradlew bundleRelease` - for Play Market release
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
-        #                              ^^^ build apk for x64 arm chips
-        # if you want to build for other architectures (armeabi-v7a,arm64-v8a,x86,x86_64)
-        # add them to the list or remove the `-PreactNativeArchitectures` flag
-        # See:https://reactnative.dev/docs/build-speed#build-only-one-abi-during-development-android-only
+        #                              ^^^ For faster build time you can specify only required architectures
+        #                                 (see: docs/speedingup.md)
+        working-directory: ./android
+        env:
+          RELEASE_VERSION: 1.0.0+${{ github.head_ref || github.ref_name }} # custom `versionName` (see: docs/versioning.md)
+          RELEASE_CODE: 1                                                  # lock `versionCode`   (see: docs/versioning.md)
+          NO_MINIFY_JS: 1                                                  # speed up build       (see: docs/speedingup.md)
 
       # (optional) Use GitHub Actions artifacts to store the apk
       - name: Store artifacts on GitHub
@@ -58,9 +78,11 @@ jobs:
       # (optional) Upload the apk to Firebase App Distribution
       - name: Distribute apk to Firebase App Distribution
         env:
+          # required
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           APK_PATH: ./android/app/build/outputs/apk/release/app-release.apk
-          RELEASE_NOTES: Made by - ${{ github.actor }} # optional
+          # optional
+          RELEASE_NOTES: Made by - ${{ github.actor }} ${{ github.event.head_commit.message }}
         run: |
           source ./scripts/env.sh
-          APP_ID=$FIREBASE_ANDROID_APP_ID ./scripts/distribute-to-firebase.sh
+          APP_ID=$FIREBASE_PROD_ANDROID_APP_ID ./scripts/distribute-to-firebase.sh

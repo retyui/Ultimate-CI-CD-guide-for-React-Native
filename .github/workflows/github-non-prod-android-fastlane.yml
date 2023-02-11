@@ -1,5 +1,27 @@
-name: Android https://docs.github.com/en/actions
-on: [push] # Run on every push to any branch
+name: Android Non-Prod Github & Fastlane
+
+on:
+  push: # TODO: Remove this type after testing
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Run on every pull request (except for release/* and hotfix/* branches)
+  pull_request:
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
+  workflow_dispatch:
+    inputs:
+      appEnvironment:
+        description: 'Environment (TODO)'
+        required: true
+        default: 'Staging'
+        type: choice
+        options:
+          - Production
+          - Staging
+          - QA
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -7,7 +29,7 @@ concurrency:
 
 jobs:
   build-android:
-    name: Android Github Actions build
+    name: Android Build
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -50,10 +72,10 @@ jobs:
         env:
           # Required
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} # to upload apk to Firebase App Distribution
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }} # (see: docs/versioning.md)
             # head_ref - for manual workflow_dispatch
             # ref_name - for pull_request
-          # More info: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+            # More info: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
 
           # Optional
           RELEASE_NOTES: Made by - ${{ github.actor }} ${{ github.event.head_commit.message }}
