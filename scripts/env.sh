@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Firebase
+export FIREBASE_ANDROID_APP_ID="1:515471863664:android:1b49d90cfef634f10d29b5"
+export FIREBASE_IOS_APP_ID="1:515471863664:ios:93569b7473232a120d29b5"
+export FIREBASE_TESTER_GROUP="my-testers-group"

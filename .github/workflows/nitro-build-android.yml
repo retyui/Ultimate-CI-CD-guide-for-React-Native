@@ -15,6 +15,19 @@ jobs:
       - uses: actions/checkout@v3
       - uses: nitro-build/github-action-nitro-android@v1
         id: nitro
-      - uses: actions/upload-artifact@v3
+
+      # (optional) Use GitHub Actions artifacts to store the apk
+      - name: Store artifacts on GitHub
+        uses: actions/upload-artifact@v3
         with:
           path: ${{ steps.nitro.outputs.nitro-output-dir }}
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Distribute apk to Firebase App Distribution
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          APK_PATH: ${{ steps.nitro.outputs.nitro-output-dir }}/app-release.apk
+          RELEASE_NOTES: Made by - ${{ github.actor }} # optional
+        run: |
+          source ./scripts/env.sh
+          APP_ID=$FIREBASE_ANDROID_APP_ID ./scripts/distribute-to-firebase.sh
