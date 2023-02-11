@@ -1,0 +1,49 @@
+name: Android https://docs.github.com/en/actions
+on: [push] # Run on every push to any branch
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true # Cancel previous runs of this workflow
+
+jobs:
+  build-android:
+    name: Android Github Actions build
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Gradle wrapper cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Gradle cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle-caches-
+
+      - name: Yarn cache
+        uses: actions/cache@v3
+        id: node_cache
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('./yarn.lock') }}
+
+      - name: Install node_modules
+        run: |
+          yarn install --frozen-lockfile
+          npx envinfo
+        if: steps.node_cache.outputs.cache-hit != 'true'
+
+
+      - name: Build arm64-v8a APK
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+        working-directory: ./android
+
+      - name: Upload apk
+        uses: actions/upload-artifact@v3
+        with:
+          path: ./android/app/build/outputs/apk/release/app-release.apk
