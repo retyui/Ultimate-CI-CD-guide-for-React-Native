@@ -20,15 +20,17 @@ then
   exit 1
 fi
 
-if [[ ! -f "$APK_PATH" ]]
+if [[ ! -f "$APK_OR_IPA_PATH" ]]
 then
-  echo "APK_PATH: $APK_PATH file does not exist"
+  echo "APK_OR_IPA_PATH: $APK_OR_IPA_PATH file does not exist"
   exit 1
 fi
 
 
-# Docs: https://firebase.google.com/docs/app-distribution/android/distribute-cli?apptype=apk
-npx firebase-tools appdistribution:distribute "$APK_PATH" \
+# Docs:
+#  android: https://firebase.google.com/docs/app-distribution/android/distribute-cli?apptype=apk
+#  ios: https://firebase.google.com/docs/app-distribution/ios/distribute-cli
+npx firebase-tools appdistribution:distribute "$APK_OR_IPA_PATH" \
   --app "$APP_ID" \
   --release-notes "$RELEASE_NOTES" \
   --groups "$FIREBASE_TESTER_GROUP"

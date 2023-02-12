@@ -1,0 +1,85 @@
+name: iOS Non-Prod Github & yukiarrr/ios-build-action
+
+on:
+  push: # TODO: Remove this type after testing
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Run on every pull request (except for release/* and hotfix/* branches)
+  pull_request:
+    branches-ignore:
+      - 'release/'
+      - 'hotifix/'
+  # Manually trigger the workflow (https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow#running-a-workflow)
+  workflow_dispatch:
+
+
+#concurrency: TODO - Uncomment this
+#  group: ${{ github.workflow }}-${{ github.ref }}
+#  cancel-in-progress: true # Cancel previous runs of this workflow
+
+jobs:
+  build-android:
+    name: iOS Build (ad-hoc)
+    runs-on: macos-12
+    env:
+      OUTPUT_IPA: ${{ github.workspace }}/my_app.ipa
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Yarn cache
+        uses: actions/cache@v3
+        id: node_cache
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('./yarn.lock') }}
+
+      - name: Install node_modules
+        run: yarn install --frozen-lockfile
+        if: steps.node_cache.outputs.cache-hit != 'true'
+
+      - name: Restore Pods cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: ${{ runner.os }}-pods-
+
+      - name: Install Pods
+        working-directory: ios
+        run: pod install
+
+      - uses: yukiarrr/ios-build-action@v1.5.0
+        with:
+          export-method: ad-hoc
+          project-path: ios/CiCdReactNative.xcodeproj
+          workspace-path: ios/CiCdReactNative.xcworkspace
+          p12-base64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          certificate-password: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          mobileprovision-base64: ${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE_BASE64 }}
+          code-signing-identity: "iPhone Distribution"
+          team-id: ZXB65YLHFM
+          configuration: Release
+          scheme: CiCdReactNative
+          output-path: ${{ env.OUTPUT_IPA }}
+
+      # (optional) Use GitHub Actions artifacts to store the ipa
+      - name: Store artifacts on GitHub
+        uses: actions/upload-artifact@v3
+        with:
+          path: ${{ env.OUTPUT_IPA }}
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Distribute ipa to Firebase App Distribution
+        run: |
+          source ./scripts/env.sh
+          APP_ID=$FIREBASE_PROD_IOS_APP_ID ./scripts/distribute-to-firebase.sh
+        env:
+          # required
+          APK_OR_IPA_PATH: ${{ env.OUTPUT_IPA }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          # optional
+          RELEASE_NOTES: Made by - ${{ github.actor }} - ${{ github.event.head_commit.message }}

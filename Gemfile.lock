@@ -210,6 +210,9 @@ GEM
       xcpretty (~> 0.2, >= 0.0.7)
 
 PLATFORMS
+  ruby
+  universal-darwin-21
+  x86_64-darwin-20
   x86_64-linux
 
 DEPENDENCIES

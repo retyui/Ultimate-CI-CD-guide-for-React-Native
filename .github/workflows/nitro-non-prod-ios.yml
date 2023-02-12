@@ -14,20 +14,59 @@ on:
   workflow_dispatch:
 
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true # Cancel previous runs of this workflow
+#concurrency: TODO - Uncomment this
+#  group: ${{ github.workflow }}-${{ github.ref }}
+#  cancel-in-progress: true # Cancel previous runs of this workflow
 
 jobs:
   build-ios:
-    name: iOS Build
+    name: iOS Build (ad-hoc)
     runs-on: macos-12
     env:
       NITRO_API_KEY: ${{ secrets.NITRO_API_KEY }}
     steps:
       - uses: actions/checkout@v3
+
+
+      # (optional) you need to install fastlane to use nitro
+      - name: Fix could not find fastlane-plugin-firebase_app_distribution-0.4.2, json-2.6.3, google-apis-core-0.11.0, aws-partitions-1.710.0, rake-13.0.6 in any of the sources (Bundler::GemNotFound)
+        run: |
+          rm Gemfile.lock
+          rm Gemfile
+
       - uses: nitro-build/github-action-nitro-ios@v1
         id: nitro
-      - uses: actions/upload-artifact@v3
         with:
-          path: ${{ steps.nitro.outputs.nitro-output-dir }}
+          scheme: CiCdReactNative
+          version-name: 1.0.0+${{ github.head_ref || github.ref_name }} # (see: docs/versioning.md)
+          version-code: 1
+          disable-version-name-from-package-json: yes
+          disable-version-code-auto-generation: yes
+          # iOS AdHoc signing https://docs.nitro.build/docs/advanced-scenarios#ios-adhoc-signing
+          export-method: ad-hoc
+          team-id: ZXB65YLHFM
+          certificate-base64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          certificate-passphrase: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          codesigning-identity: "iPhone Distribution"
+          provisioning-profiles-base64: ${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE_BASE64 }}
+          provisioning-profile-specifier: "Github Actions nitro.build"
+          debug: yes
+
+
+      # (optional) Use GitHub Actions artifacts to store the ipa
+      - name: Store artifacts on GitHub
+        uses: actions/upload-artifact@v3
+        with:
+          path: ${{ steps.nitro.outputs.nitro-app-path }}
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Distribute apk to Firebase App Distribution
+        run: |
+          source ./scripts/env.sh
+          APP_ID=$FIREBASE_PROD_IOS_APP_ID ./scripts/distribute-to-firebase.sh
+        env:
+          # required
+          APK_OR_IPA_PATH: ${{ steps.nitro.outputs.nitro-app-path }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          # optional
+          RELEASE_NOTES: Made by - ${{ github.actor }} - ${{ github.event.head_commit.message }}
