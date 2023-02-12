@@ -32,7 +32,7 @@ jobs:
         id: node_cache
         with:
           path: node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('./yarn.lock') }}
+          key: ${{ runner.os }}-yarnV1-${{ hashFiles('./yarn.lock') }}
 
       - name: Install node_modules
         run: yarn install --frozen-lockfile
@@ -45,7 +45,7 @@ jobs:
             ios/Pods
             ~/Library/Caches/CocoaPods
             ~/.cocoapods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          key: ${{ runner.os }}-podsV1-${{ hashFiles('ios/Podfile.lock') }}
           restore-keys: ${{ runner.os }}-pods-
 
       - name: Install Pods

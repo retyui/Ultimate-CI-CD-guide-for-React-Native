@@ -23,7 +23,7 @@ jobs:
     name: Android Build
     strategy:
       matrix:
-        runs-on: [ buildjet-2vcpu-ubuntu-2204, ubuntu-20.04 ]
+        runs-on: [ buildjet-4vcpu-ubuntu-2204, ubuntu-20.04 ]
     runs-on: ${{matrix.runs-on}}
     steps:
       - uses: actions/checkout@v3
@@ -46,7 +46,7 @@ jobs:
         id: node_cache
         with:
           path: node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('./yarn.lock') }}
+          key: ${{ runner.os }}-yarnV1-${{ hashFiles('./yarn.lock') }}
 
       - name: Install node_modules
         run: yarn install --frozen-lockfile
