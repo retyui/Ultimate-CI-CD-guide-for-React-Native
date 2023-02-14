@@ -1,4 +1,4 @@
-name: iOS Not-Prod nitro.build
+name: iOS Not-Prod Github & Bash
 
 on:
   push: # TODO: Remove this type after testing
@@ -24,35 +24,40 @@ jobs:
     runs-on: macos-12
     env:
       NO_FLIPPER: 1 # speed up build (see: docs/speedingup.md)
-      NITRO_API_KEY: ${{ secrets.NITRO_API_KEY }}
+      IPA_OUTPUT_PATH: ${{ github.workspace }}/my_app.ipa
     steps:
       - uses: actions/checkout@v3
 
-
-      # (optional) you need to install fastlane to use nitro
-      - name: Fix could not find fastlane-plugin-firebase_app_distribution-0.4.2, json-2.6.3, google-apis-core-0.11.0, aws-partitions-1.710.0, rake-13.0.6 in any of the sources (Bundler::GemNotFound)
-        run: |
-          rm Gemfile.lock
-          rm Gemfile
-
-      - uses: nitro-build/github-action-nitro-ios@v1
-        id: nitro
+      - name: Yarn cache
+        uses: actions/cache@v3
+        id: node_cache
         with:
-          scheme: CiCdReactNative
-          version-name: 1.0.0+${{ github.head_ref || github.ref_name }} # (see: docs/versioning.md)
-          version-code: 1
-          disable-version-name-from-package-json: yes
-          disable-version-code-auto-generation: yes
-          # iOS AdHoc signing https://docs.nitro.build/docs/advanced-scenarios#ios-adhoc-signing
-          export-method: ad-hoc
-          team-id: ZXB65YLHFM
-          certificate-base64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
-          certificate-passphrase: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
-          codesigning-identity: "iPhone Distribution"
-          provisioning-profiles-base64: ${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE_BASE64 }}
-          provisioning-profile-specifier: "Github Actions nitro.build"
-          debug: yes
+          path: node_modules
+          key: ${{ runner.os }}-yarnV1-${{ hashFiles('./yarn.lock') }}
 
+      - name: Install node_modules
+        run: yarn install --frozen-lockfile
+        if: steps.node_cache.outputs.cache-hit != 'true'
+
+      - name: Access Pods from cache if available
+        uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: ${{ runner.os }}-pods-
+
+      - name: Install Pods
+        working-directory: ios
+        run: pod install
+
+      - name: Build ipa ad-hoc
+        run: ./scripts/make-ios-adhoc-build.sh
+        env:
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_ADHOC_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          EXPORT_METHOD: ad-hoc
+          IPA_OUTPUT_PATH: ${{ env.IPA_OUTPUT_PATH }}
 
       # (optional) Use GitHub Actions artifacts to store the ipa
       - name: Store artifacts on GitHub
@@ -67,7 +72,7 @@ jobs:
           APP_ID=$FIREBASE_PROD_IOS_APP_ID ./scripts/distribute-to-firebase.sh
         env:
           # required
-          APK_OR_IPA_PATH: ${{ steps.nitro.outputs.nitro-app-path }}
+          APK_OR_IPA_PATH: ${{ env.IPA_OUTPUT_PATH }}
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
           # optional
           RELEASE_NOTES: Made by - ${{ github.actor }} - ${{ github.event.head_commit.message }}

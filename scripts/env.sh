@@ -9,9 +9,15 @@ export FIREBASE_TESTER_GROUP="my-testers-group"
 
 
 # iOS
+# Project options
 export SCHEME_NAME=CiCdReactNative
 export CONFIGURATION=Release
-export PROVISIONING_PROFILE_NAME="test"
-export IPA_OUTPUT_PATH="./CiCdReactNative.ipa"
-export ARCHIVE_PATH="./build/${CONFIGURATION}/${SCHEME_NAME}.xcarchive"
+export PROVISIONING_PROFILE_NAME="Github Actions nitro.build"
 export WORKSPACE_PATH=ios/CiCdReactNative.xcworkspace
+export ARCHIVE_PATH="./build/${CONFIGURATION}/${SCHEME_NAME}.xcarchive"
+export KEYCHAIN_NAME=tmp.keychain
+export CERTIFICATE_PATH=tmp_cert.p12
+export PROVISIONING_PROFILE_PATH="tmp.mobileprovision"
+export DEVELOPMENT_TEAM="ZXB65YLHFM"
+export DESTINATION="generic/platform=iOS"
+export TMP_EXPORT_OPTIONS_PLIST="TmpExportOptions.plist"
