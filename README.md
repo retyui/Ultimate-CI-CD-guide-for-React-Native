@@ -69,7 +69,19 @@ Configs:
 
 ## [CircleCI](https://circleci.com/)
 
-TODO...
+Configs:
+- Android [`.circleci/config.yml`](.circleci/config.yml)
+
+
+| * | iOS | Android ([large](https://circleci.com/docs/configuration-reference/#docker-execution-environment)) |
+|---|---|---|
+| Status |  | [![CircleCI](https://dl.circleci.com/status-badge/img/gh/retyui/Ultimate-CI-CD-guide-for-React-Native/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/retyui/Ultimate-CI-CD-guide-for-React-Native/tree/main) |
+| Duration (no cache) |  | 4min 52sec |
+| Duration (cache) |  | 3min 12sec |
+| OS |  | Ubuntu 22.04.1 LTS |
+| CPU |  | (4) vCPU |
+| Memory |  | 8GB |
+
 
 ## [Travis-CI](https://www.travis-ci.com/)
 

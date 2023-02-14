@@ -1,108 +1,81 @@
-# Based on https://github.com/CircleCI-Public/circleci-demo-react-native
+# Based on
+#  - https://github.com/CircleCI-Public/circleci-demo-react-native
+#  - https://github.com/facebook/react-native/blob/main/.circleci/config.yml
 version: 2.1
+
+
+
+# -------------------------
+#        REFERENCES
+# -------------------------
+references:
+  defaults: &defaults
+  cache_keys:
+    yarn_cache_key: &yarn_cache_key v2-yarn-cache-{{ .Environment.CIRCLE_JOB }}
+    gradle_cache_key: &gradle_cache_key v2-gradle-{{ checksum "android/gradle/wrapper/gradle-wrapper.properties" }}-{{ checksum "android/app/build.gradle" }}-{{ checksum "android/build.gradle" }}
+    # ^^^ not sure that is correct cache key (as node_modules build.gradle files won't be taken into account)
+
+# -------------------------
+#        COMMANDS
+# -------------------------
+commands:
+  build_apk:
+    steps:
+      - restore_cache:
+          keys:
+            - *gradle_cache_key
+
+      - run:
+          name: Build Apk
+          command: BRANCH_NAME=$CIRCLE_BRANCH ./scripts/make-android-build.sh
+          #        ^^^ custom `versionName` (see: docs/versioning.md)
+
+      - save_cache:
+          paths:
+            - ~/.gradle
+          key: *gradle_cache_key
+
+  run_yarn:
+    parameters:
+      yarn_base_cache_key:
+        default: *yarn_cache_key
+        type: string
+
+    steps:
+      - restore_cache:
+          keys:
+            - << parameters.yarn_base_cache_key >>-{{ arch }}-{{ checksum "yarn.lock" }}
+            - << parameters.yarn_base_cache_key >>-{{ arch }}
+            - << parameters.yarn_base_cache_key >>
+      - run:
+          name: Yarn Install Dependencies
+          command: yarn install --non-interactive --cache-folder ~/.cache/yarn --frozen-lockfile
+      - save_cache:
+          paths:
+            - ~/.cache/yarn
+          key: << parameters.yarn_base_cache_key >>-{{ arch }}-{{ checksum "yarn.lock" }}
+
 jobs:
   node:
     working_directory: ~/my-react-native
     docker:
       - image: cimg/node:18.12.1
-
     steps:
       - checkout
-
-      - restore_cache:
-          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
-
-      - restore_cache:
-          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
-
-      - run: yarn install --frozen-lockfile
-
-      - save_cache:
-          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
-          paths:
-            - ~/.cache/yarn
-
-      - save_cache:
-          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
-          paths:
-            - node_modules
-
+      - run_yarn
       - persist_to_workspace:
           root: ~/my-react-native
           paths:
             - node_modules
 
 
-  macos-build:
-    working_directory: ~/my-react-native
-    macos:
-      xcode: 11.3.0
-    environment:
-      FL_OUTPUT_DIR: output
-      FASTLANE_LANE: test
-
-    steps:
-      - checkout
-      - restore_cache:
-          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
-
-      - restore_cache:
-          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
-
-      - run: yarn install
-
-      - save_cache:
-          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
-          paths:
-            - ~/.cache/yarn
-
-      - save_cache:
-          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
-          paths:
-            - node_modules
-
-      - restore_cache:
-          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
-
-      #Pods directory is ignored to match default RN setup, but can also check them into source control
-      #https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
-      - restore_cache:
-          key: pods-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
-
-      - run:
-          command: pod install
-          working_directory: ios
-
-      - run:
-          command: bundle install
-          working_directory: ios
-
-      - save_cache:
-          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
-          paths:
-            - vendor/bundle
-
-      - save_cache:
-          key: pods-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
-          paths:
-            - ios/Pods
-
-      # TODO
-      - run:
-          name: Fastlane
-          command: bundle exec fastlane $FASTLANE_LANE
-          working_directory: ios
-
-      - store_artifacts:
-          path: output
-
-      - store_test_results:
-          path: output/scan
-
   android-build:
-    working_directory: ~/my-react-native/android
+    working_directory: ~/my-react-native
     docker:
-      - image: circleci/android:2022.12-node # (ubuntu 20.04.5 LTS; android-33; node 18.12.1; ...) https://circleci.com/developer/images/image/cimg/android
+      - image: cimg/android:2022.12-node # (ubuntu 20.04.5 LTS; android-33; node 18.12.1; ...) https://circleci.com/developer/images/image/cimg/android
+    environment:
+      REACT_NATIVE_ARCHITECTURES: arm64-v8a # speed up build (see: docs/speedingup.md)
+      NO_MINIFY_JS: 1 # speed up build (see: docs/speedingup.md)
     steps:
       - checkout:
           path: ~/my-react-native
@@ -110,19 +83,26 @@ jobs:
       - attach_workspace:
           at: ~/my-react-native
 
-      - run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+      - run_yarn
+      - build_apk
 
       - store_artifacts:
-          path: app/build/outputs/apk/release
+          path: android/app/build/outputs/apk/release/app-release.apk
 
+      - run:
+          name: Upload to Firebase
+          command: |
+            source ./scripts/env.sh
+            export APP_ID=$FIREBASE_PROD_ANDROID_APP_ID;
+            export APK_OR_IPA_PATH=android/app/build/outputs/apk/release/app-release.apk
+            export RELEASE_NOTES="Made by - $CIRCLE_USERNAME"
+
+            ./scripts/distribute-to-firebase.sh
 
 workflows:
   node-android-ios:
     jobs:
       - node
       - android-build:
-          requires:
-            - node
-      - macos-build:
           requires:
             - node
