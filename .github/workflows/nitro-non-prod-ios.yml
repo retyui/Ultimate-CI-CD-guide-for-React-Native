@@ -60,8 +60,8 @@ jobs:
         with:
           path: ${{ steps.nitro.outputs.nitro-app-path }}
 
-      # (optional) Upload the apk to Firebase App Distribution
-      - name: Distribute apk to Firebase App Distribution
+      # (optional) Upload the ipa/app to Firebase App Distribution
+      - name: Distribute ipa,app to Firebase App Distribution
         run: |
           source ./scripts/env.sh
           APP_ID=$FIREBASE_PROD_IOS_APP_ID ./scripts/distribute-to-firebase.sh

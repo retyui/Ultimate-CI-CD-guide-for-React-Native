@@ -1,0 +1,177 @@
+# Useful links
+# - All default environment variables: https://docs.codemagic.io/yaml-basic-configuration/environment-variables/
+# - Yaml syntax    : https://docs.codemagic.io/yaml-basic-configuration/yaml-getting-started/
+# - Android singing: https://docs.codemagic.io/yaml-code-signing/signing-android/
+# - iOS singing    : https://docs.codemagic.io/yaml-code-signing/signing-ios/
+
+definitions:
+  - &yarn_install
+    name: Install yarn dependencies
+    script: yarn install --non-interactive --frozen-lockfile
+
+
+workflows:
+  android-non-prod:
+    name: Android Non-Prod (codemagic) & Bash
+    max_build_duration: 120
+    instance_type: mac_mini_m1 # only available for free plan (better to use a linux of course)
+    environment:
+      # (optional) Customize the environment: https://docs.codemagic.io/specs/versions-macos/
+      #node: 18.12.1
+      #java: 11
+      groups:
+        - android-build # Need to get a secret variables (FIREBASE_TOKEN,...)
+      vars:
+        # required
+        APK_OR_IPA_PATH: android/app/build/outputs/apk/release/app-release.apk
+        # (optional)
+        REACT_NATIVE_ARCHITECTURES: arm64-v8a # speed up build (see: docs/speedingup.md)
+        NO_MINIFY_JS: 1 # speed up build (see: docs/speedingup.md)
+
+    cache:
+      cache_paths:
+        - '$HOME/.gradle/caches'
+        - '$CM_BUILD_DIR/node_modules'
+
+    scripts:
+      #- name: Debug environment variables
+      #  script: printenv
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Install Firebase CLI in background (need later to upload the ipa)
+        script: npm i -g firebase-tools &
+
+      - *yarn_install
+
+      - name: Set Android SDK location
+        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+
+      - name: Build apk
+        script: BRANCH_NAME=$CM_BRANCH ./scripts/make-android-build.sh
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Distribute apk to Firebase App Distribution
+        script: |
+          source ./scripts/env.sh
+          # required
+          export APP_ID=$FIREBASE_PROD_ANDROID_APP_ID
+          # optional
+          export RELEASE_NOTES=$(git log --pretty=format:"%s" -1)
+          # run upload script
+          ./scripts/distribute-to-firebase.sh
+
+    # (optional) Use CodeMagic artifacts to store the apk & aab
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
+
+    # (optional) Use send email/Slack notifications (need an extra setup in admin panel)
+    #publishing:
+    #  email:
+    #    recipients:
+    #      - user_1@example.com
+    #      - user_2@example.com
+    #    notify:
+    #      success: true
+    #      failure: false
+    #  slack:
+    #    channel: '#channel-name'
+    #    notify_on_build_start: true
+
+
+  ios-non-prod:
+    name: iOS Non-Prod (codemagic)
+    max_build_duration: 120
+    instance_type: mac_mini_m1 # only available for free plan (better to use a linux of course)
+    environment:
+      # (optional) Customize the environment: https://docs.codemagic.io/specs/versions-macos/
+      #node: 18.12.1
+      #xcode: 14.2
+      cocoapods: 1.11.3
+      groups:
+        - ios-build # Need to get a secret variables (FIREBASE_TOKEN,...)
+      ios_signing:
+        provisioning_profiles:
+          - my_adhoc_provisional_profile
+        certificates:
+          - my_cert_p12
+      vars:
+        # required
+        IPA_DIRECTORY: "$CM_BUILD_DIR/build/ios/ipa"
+        # (optional)
+        NO_MINIFY_JS: 1 # speed up build (see: docs/speedingup.md)
+        NO_FLIPPER: 1 # speed up build (see: docs/speedingup.md)
+    cache:
+      cache_paths:
+        - '$HOME/Library/Caches/CocoaPods'
+        - '$CM_BUILD_DIR/node_modules'
+
+    scripts:
+      #- name: Debug environment variables
+      #  script: printenv
+
+      # (optional) Upload the apk to Firebase App Distribution
+      - name: Install Firebase CLI in background (need later to upload the ipa)
+        script: npm i -g firebase-tools &
+
+      - *yarn_install
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd $CM_BUILD_DIR/ios
+          pod install
+
+      # Signing iOS apps: https://docs.codemagic.io/yaml-code-signing/signing-ios/
+      - name: Set up provisioning profiles settings on Xcode project
+        script: xcode-project use-profiles
+
+      - name: Increment build number
+        script: |
+          source ./scripts/env.sh
+          cd $CM_BUILD_DIR/ios
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_ID")
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+
+      # `xcode-project build-ipa`: https://github.com/codemagic-ci-cd/cli-tools/blob/master/docs/xcode-project/build-ipa.md
+      - name: Build ipa for distribution
+        script: |
+          source ./scripts/env.sh # Load `$XC_*` environment variables
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XC_WORKSPACE" \
+            --scheme "$XC_SCHEME_NAME" \
+            --config "$XC_CONFIGURATION" \
+            --archive-flags="-destination $XC_DESTINATION" \
+            --ipa-directory="$IPA_DIRECTORY"
+
+      # (optional) Upload the ipa to Firebase App Distribution
+      - name: Distribute ipa to Firebase App Distribution
+        script: |
+          # required
+          source ./scripts/env.sh
+          export APP_ID=$FIREBASE_PROD_IOS_APP_ID
+          export APK_OR_IPA_PATH="$IPA_DIRECTORY/CiCdReactNative.ipa"
+          # optional
+          export RELEASE_NOTES=$(git log --pretty=format:"%s" -1)
+          # run upload script
+          ./scripts/distribute-to-firebase.sh
+
+
+    # (optional) Use CodeMagic artifacts to store the ipa,app,dSYM
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    # (optional) Use send email/Slack notifications (need an extra setup in admin panel)
+    #publishing:
+    #  email:
+    #    recipients:
+    #      - user_1@example.com
+    #      - user_2@example.com
+    #    notify:
+    #      success: true
+    #      failure: false
+    #  slack:
+    #    channel: '#channel-name'
+    #    notify_on_build_start: true

@@ -1,6 +1,8 @@
 # Ultimate-CI-CD-guide-for-React-Native
 
 
+- State of React Native CI/CD: https://results.stateofreactnative.com/deployment/
+
 ## TODO
 
 - [x] Android
@@ -65,6 +67,21 @@ Configs:
 | Status | [![iOS Not-Prod nitro.build](https://github.com/retyui/Ultimate-CI-CD-guide-for-React-Native/actions/workflows/nitro-non-prod-ios.yml/badge.svg)](https://github.com/retyui/Ultimate-CI-CD-guide-for-React-Native/actions/workflows/nitro-non-prod-ios.yml) | [![Android Not-Prod nitro.build](https://github.com/retyui/Ultimate-CI-CD-guide-for-React-Native/actions/workflows/nitro-non-prod-android.yml/badge.svg)](https://github.com/retyui/Ultimate-CI-CD-guide-for-React-Native/actions/workflows/nitro-non-prod-android.yml) |
 | Duration (no cache) | 24 min 23 sec | 4 min 48 sec |
 | Duration (cache) |  1 min 30 sec | 0 min 41 sec |
+
+
+## [Codemagic](https://reactnativeci.com/) 🚀
+
+Configs:
+- iOS + Android: [`codemagic.yaml`](codemagic.yaml)
+
+| * | iOS | Android |
+|---|---|---|
+| Status | [![Codemagic build status](https://api.codemagic.io/apps/63ee8817531a3507d903e30e/ios-non-prod/status_badge.svg)](https://codemagic.io/apps/63ee8817531a3507d903e30e/ios-non-prod/latest_build) | [![Codemagic build status](https://api.codemagic.io/apps/63ee8817531a3507d903e30e/android-non-prod/status_badge.svg)](https://codemagic.io/apps/63ee8817531a3507d903e30e/android-non-prod/latest_build) |
+| [mac_mini_m1](https://docs.codemagic.io/specs/versions-macos/) (no cache) | 5m 29s | 4m 10s |
+| [mac_mini_m1](https://docs.codemagic.io/specs/versions-macos/) (cache) | 4m 5s | 3m 8s |
+| OS | macOS 13.0.1 | macOS 13.0.1 |
+| CPU | (4) arm64 Apple M1 (Virtual) | (4) arm64 Apple M1 (Virtual) |
+| Memory | 8GB | 8GB |
 
 
 ## [CircleCI](https://circleci.com/)
