@@ -100,6 +100,20 @@ Configs:
 | Memory |  | 8GB |
 
 
+## [Appcircle](https://appcircle.io/)
+
+Config: web config stored on the service side
+
+| * | iOS ([M1 Pool](https://docs.appcircle.io/infrastructure/ios-build-infrastructure/))| Android ([Intel Pool](https://docs.appcircle.io/infrastructure/android-build-infrastructure)) |
+|---|---|---|
+| Status | [n/a](https://my.appcircle.io/build/detail/27d8a3b9-eff8-4d5b-81ef-cbbd4300964c) | [n/a](https://my.appcircle.io/build/detail/31c44e45-53f1-49a3-a825-395c2a892147/) |
+| Duration (first run) | 7min 30sec | 2min 34sec |
+| Duration (second run) | 6min 59sec | 2min 34sec |
+| OS | macOS 12.6 | Linux 5.15 Debian GNU/Linux 11 |
+| CPU | (6) arm64 Apple M1 (Virtual) | (32) x64 AMD EPYC 7313 16-Core Processor |
+| Memory | 7.00 GB | 45.53 GB / 62.76 GB |
+
+
 ## [Travis-CI](https://www.travis-ci.com/)
 
 TODO...
